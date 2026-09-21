@@ -1,0 +1,7 @@
+bin/
+obj/
+TestResults/
+logs/
+**/screenshots/
+*.user
+.vs/

@@ -1,0 +1,53 @@
+name: SentryQA Test Suite
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch: {}
+  schedule:
+    - cron: '0 6 * * *'   # daily smoke run against the live PricePulse deployment
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore
+        run: dotnet restore SentryQA.sln
+
+      - name: Build
+        run: dotnet build SentryQA.sln --no-restore --configuration Release
+
+      - name: Run API tests
+        run: >
+          dotnet test src/SentryQA.ApiTests/SentryQA.ApiTests.csproj
+          --no-build --configuration Release
+          --logger "trx;LogFileName=api-tests.trx"
+          --results-directory ./TestResults
+
+      - name: Run UI tests (headless Chrome)
+        run: >
+          dotnet test src/SentryQA.UITests/SentryQA.UITests.csproj
+          --no-build --configuration Release
+          --logger "trx;LogFileName=ui-tests.trx"
+          --results-directory ./TestResults
+
+      - name: Publish test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: |
+            ./TestResults/**
+            ./logs/**
+            ./**/screenshots/**
